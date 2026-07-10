@@ -2,8 +2,8 @@ export function buildWebSiteSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'Buffstreams',
-    url: 'https://buffstreamsbackup.world',
+    name: 'Sportsurge',
+    url: 'https://sportsurgenew.arkhangaming648.workers.dev',
     description: 'Complete sports schedule directory for NFL, NBA, MLB, NHL, UFC, and more.',
   };
 }
