@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import Header from '../components/Header.astro';
-import SportGrid from '../components/SportGrid.astro';
+import MatchSearch from '../components/MatchSearch.astro';
 import PopularLiveSection from '../components/PopularLiveSection.astro';
 import ScheduleSection from '../components/ScheduleSection.astro';
 import OtherMatches from '../components/OtherMatches.astro';
@@ -10,15 +10,24 @@ import HomepageArticle from '../components/HomepageArticle.astro';
 import BlogSidebar from '../components/BlogSidebar.astro';
 import Footer from '../components/Footer.astro';
 import { loadMatchesFromData } from '../lib/api';
-import type { APIMatch } from '../lib/api';
+import type { APIMatch, PremiumMatch } from '../lib/api';
 import { formatDateParam, getMatchDateStr } from '../lib/time';
 
 const liveFile = import.meta.glob('../data/matches-live.json', { eager: true });
 const todayFile = import.meta.glob('../data/matches-today.json', { eager: true });
+const allFile = import.meta.glob('../data/matches-all.json', { eager: true });
 const liveData: APIMatch[] = (Object.values(liveFile)[0] as any)?.default || [];
 const todayData: APIMatch[] = (Object.values(todayFile)[0] as any)?.default || [];
+const allData: APIMatch[] = (Object.values(allFile)[0] as any)?.default || [];
 
 const allMatches = loadMatchesFromData([...liveData, ...todayData]);
+
+const deduped = loadMatchesFromData([...liveData, ...todayData, ...allData]);
+const searchMap = new Map<string, PremiumMatch>();
+for (const m of deduped) {
+  if (!searchMap.has(m.id)) searchMap.set(m.id, m);
+}
+const searchableMatches = Array.from(searchMap.values());
 const liveIds = new Set(allMatches.filter((m) => m._liveSource).map((m) => m.id));
 const now = Date.now();
 const todayStr = formatDateParam(now);
@@ -39,7 +48,7 @@ for (const m of futureMatches) {
 >
   <Header />
   <main class="mx-auto max-w-7xl px-2 py-6 sm:px-4">
-    <SportGrid />
+    <MatchSearch matches={searchableMatches} />
     <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div class="lg:col-span-2">
         <PopularLiveSection initialShow={5} step={5} viewAllMode="link" />

@@ -1,0 +1,163 @@
+---
+import type { PremiumMatch } from '../lib/api';
+
+export interface Props {
+  matches: PremiumMatch[];
+}
+
+const { matches } = Astro.props;
+
+interface SearchItem {
+  id: string;
+  title: string;
+  homeTeam: string | null;
+  awayTeam: string | null;
+  homeBadge: string | null;
+  awayBadge: string | null;
+  displayName: string | null;
+  categoryBadge: string | null;
+}
+
+const searchItems: SearchItem[] = matches.map((m) => ({
+  id: m.id,
+  title: m.title,
+  homeTeam: m.teams?.home?.name || null,
+  awayTeam: m.teams?.away?.name || null,
+  homeBadge: m.teams?.home?.badge || null,
+  awayBadge: m.teams?.away?.badge || null,
+  displayName: m.premiumDisplayName,
+  categoryBadge: m.categoryBadge,
+}));
+---
+
+<section class="mx-auto mb-6 mt-2 max-w-3xl px-2 sm:px-4">
+  <h2 class="mb-4 text-center text-xl font-bold text-white sm:text-2xl">
+    What do you want to watch today?
+  </h2>
+  <div class="relative">
+    <input
+      id="ms-input"
+      type="text"
+      placeholder="Search any match"
+      autocomplete="off"
+      class="w-full rounded-lg border border-buff-border bg-buff-darker px-4 py-3 text-sm text-white placeholder-buff-muted outline-none transition focus:border-buff-gold focus:ring-1 focus:ring-buff-gold"
+    />
+    <div
+      id="ms-results"
+      class="absolute left-0 right-0 top-full z-50 mt-1 hidden max-h-96 overflow-y-auto rounded-lg border border-buff-border bg-buff-darker shadow-lg"
+    ></div>
+  </div>
+</section>
+
+<div id="ms-data" hidden>{JSON.stringify(searchItems)}</div>
+
+<script is:inline>
+(function () {
+  var input = document.getElementById('ms-input');
+  var results = document.getElementById('ms-results');
+  var dataDiv = document.getElementById('ms-data');
+  if (!input || !results || !dataDiv) return;
+
+  var matches = JSON.parse(dataDiv.textContent || '[]');
+  var debounceTimer = null;
+  var MIN_QUERY_LENGTH = 1;
+
+  function normalize(s) {
+    return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  function escapeHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function filterMatches(query) {
+    if (query.length < MIN_QUERY_LENGTH) return [];
+    var q = normalize(query);
+    return matches.filter(function (m) {
+      if (normalize(m.title).indexOf(q) !== -1) return true;
+      if (m.homeTeam && normalize(m.homeTeam).indexOf(q) !== -1) return true;
+      if (m.awayTeam && normalize(m.awayTeam).indexOf(q) !== -1) return true;
+      if (m.displayName && normalize(m.displayName).indexOf(q) !== -1) return true;
+      if (m.categoryBadge && normalize(m.categoryBadge).indexOf(q) !== -1) return true;
+      return false;
+    }).slice(0, 10);
+  }
+
+  function renderResults(filtered) {
+    if (!filtered.length) {
+      results.classList.add('hidden');
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < filtered.length; i++) {
+      var m = filtered[i];
+      var badge = m.displayName || m.categoryBadge || '';
+      html +=
+        '<a href="/match/' +
+        encodeURIComponent(m.id) +
+        '" class="flex items-center gap-2 border-b border-buff-border px-4 py-3 text-sm text-white no-underline transition last:border-b-0 hover:bg-buff-hover">';
+      if (m.homeBadge) {
+        html +=
+          '<img src="/api/proxy/images/badge/' +
+          encodeURIComponent(m.homeBadge) +
+          '.webp" alt="" class="h-6 w-6 shrink-0 rounded-full object-contain" loading="lazy">';
+      }
+      html +=
+        '<span class="min-w-0 flex-1 truncate font-medium">' +
+        escapeHtml(m.homeTeam || m.title.split(' vs ')[0] || '') +
+        '</span>';
+      html += '<span class="mx-1 shrink-0 text-xs text-buff-muted">vs</span>';
+      html +=
+        '<span class="min-w-0 flex-1 truncate text-right font-medium">' +
+        escapeHtml(m.awayTeam || m.title.split(' vs ')[1] || '') +
+        '</span>';
+      if (m.awayBadge) {
+        html +=
+          '<img src="/api/proxy/images/badge/' +
+          encodeURIComponent(m.awayBadge) +
+          '.webp" alt="" class="h-6 w-6 shrink-0 rounded-full object-contain" loading="lazy">';
+      }
+      if (badge) {
+        html +=
+          '<span class="ml-2 shrink-0 rounded bg-buff-border px-2 py-0.5 text-xs text-buff-muted">[' +
+          escapeHtml(badge.toUpperCase()) +
+          ']</span>';
+      }
+      html += '<span class="ml-1 text-buff-muted">&rsaquo;</span>';
+      html += '</a>';
+    }
+    results.innerHTML = html;
+    results.classList.remove('hidden');
+  }
+
+  input.addEventListener('input', function () {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(function () {
+      var query = input.value.trim();
+      var filtered = filterMatches(query);
+      renderResults(filtered);
+    }, 250);
+  });
+
+  input.addEventListener('focus', function () {
+    var query = input.value.trim();
+    if (query.length >= MIN_QUERY_LENGTH) {
+      var filtered = filterMatches(query);
+      renderResults(filtered);
+    }
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!input.contains(e.target) && !results.contains(e.target)) {
+      results.classList.add('hidden');
+    }
+  });
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      results.classList.add('hidden');
+    }
+  });
+})();
+</script>
